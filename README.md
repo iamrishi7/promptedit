@@ -127,7 +127,7 @@ php artisan migrate
 composer run dev
 ```
 
-`composer run dev` runs the web server, Vite, the queue listener for the `default` and `images` queues, the scheduler (the Pixelforge poller) and the log viewer. Then register at `/register`. Locally, emails go to `storage/logs/laravel.log`, including the verification link. To open the admin report, grant yourself the role with `php artisan users:make-admin you@example.com`.
+`composer run dev` runs the web server, Vite, the queue listener for the `default` and `images` queues, the scheduler (the Pixelforge poller) and the log viewer. Then register at `/register`. There is no email verification step. To open the admin report, grant yourself the role with `php artisan users:make-admin you@example.com`.
 
 **Webhooks locally:** expose the app with a tunnel (Expose, ngrok, Cloudflare Tunnel). Set `https://<tunnel>/webhooks/pixelforge` as the webhook URL for your local key in the Pixelforge dashboard. Without a tunnel the app still works: the poller picks up results within about a minute.
 
@@ -137,26 +137,24 @@ composer run dev
 
 ### Dokploy (Docker)
 
-The repo ships one image for three roles: `Dockerfile` (FrankenPHP, PHP 8.5), `docker/entrypoint.sh` and `docker-compose.dokploy.yml`.
+One image runs everything (`Dockerfile`: FrankenPHP, PHP 8.5). By default (`CONTAINER_ROLE=all`), a container runs the web server, the queue worker (`default`, then `images`) and the scheduler (the Pixelforge poller) under supervisord, restarting any that exits. It migrates on start and answers `/up` for health checks.
 
-| Service     | `CONTAINER_ROLE` | Runs                                                                                    |
-| ----------- | ---------------- | --------------------------------------------------------------------------------------- |
-| `app`       | `web`            | Migrates on start (`--isolated`), then serves HTTP on port 8000. Health check: `/up`.   |
-| `worker`    | `worker`         | `queue:work --queue=default,images`, with submissions and webhooks before image copies. |
-| `scheduler` | `scheduler`      | `schedule:work`, which runs the Pixelforge poller every minute.                         |
-
-`app` and `worker` share a named volume at `/app/storage/app`. The worker writes image copies there and the web container serves them; the volume survives redeploys.
+**Option A: Application (simplest)**
 
 1. In Dokploy, create a **Postgres** and a **Dragonfly** database, then note their internal hosts and passwords.
-2. Create a **Compose** service from this repo, with compose path `docker-compose.dokploy.yml`.
+2. Create an **Application** from this repo: branch `main`, build type **Dockerfile**.
 3. In **Environment**, paste [`docker/dokploy.env.example`](docker/dokploy.env.example) and fill it in:
     - `APP_KEY`: run `php artisan key:generate --show`.
     - The database hosts and passwords from step 1.
-    - A mailer, because sign-up requires email verification.
     - The **production** Pixelforge key and secret.
-4. In **Domains**, attach your domain to the `app` service on port `8000` with HTTPS. Traefik terminates TLS, and the app trusts its `X-Forwarded-*` headers.
-5. Deploy. Then open a terminal on `app` and run `php artisan users:make-admin <email>` for each operator.
-6. In the Pixelforge dashboard, set the production key's webhook URL to `https://<your-domain>/webhooks/pixelforge`.
+4. In **Advanced → Mounts**, add a volume mounted at `/app/storage/app`, so stored images survive redeploys.
+5. In **Domains**, attach your domain to port `8000` with HTTPS. Traefik terminates TLS, and the app trusts its `X-Forwarded-*` headers.
+6. Deploy. Then open a terminal on the container and run `php artisan users:make-admin <email>`.
+7. In the Pixelforge dashboard, set the production key's webhook URL to `https://<your-domain>/webhooks/pixelforge`.
+
+**Option B: Compose, one process per container**
+
+`docker-compose.dokploy.yml` runs the same image as three services: `app` (`web`), `worker` and `scheduler`. `app` and `worker` share a volume for images. Use this to scale or restart the worker on its own. The steps are the same, but create a **Compose** service, set the compose path to that file, and attach the domain to the `app` service.
 
 ### Any other host
 

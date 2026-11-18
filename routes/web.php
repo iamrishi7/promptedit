@@ -17,7 +17,7 @@ Route::get('images/{generation}', GenerationImageController::class)
     ->middleware(['signed:relative', 'throttle:120,1'])
     ->name('generations.image');
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth'])->group(function () {
     // The app is the generate page; keep /dashboard (Fortify's home) as an alias for it.
     Route::redirect('dashboard', '/generate')->name('dashboard');
 
@@ -39,7 +39,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('generations.estimate');
 });
 
-Route::middleware(['auth', 'verified', 'role:'.User::ADMIN_ROLE])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth', 'role:'.User::ADMIN_ROLE])->prefix('admin')->name('admin.')->group(function () {
     Route::get('spend', SpendReportController::class)->name('spend');
 });
 

@@ -332,5 +332,8 @@ Short records of design choices, for review and the technical interview.
 - Health check, pages and migrations all pass, and asset URLs come out as `https` behind a forwarded proto.
 - The Dragonfly cache, locks and cached report values work.
 - The `admin` role exists, the worker idles, the scheduler runs `pixelforge:poll`, and all three containers are healthy.
-**Consequences:** One build serves all three roles, and every service runs the same code version.
+- **Default `CONTAINER_ROLE=all`:** supervisord runs web, worker and scheduler in one container and restarts any that exits, so a plain Dokploy **Application** (Dockerfile) is enough. The images go on a volume mounted at `/app/storage/app`. The Compose file remains for running one process per container.
+- **No email verification:** Fortify's verification feature was never enabled, and `User` doesn't implement `MustVerifyEmail`, so the leftover `verified` middleware was removed. Sign-up works without a mailer.
+
+**Consequences:** One build serves every role, and every process runs the same code version.
 **Code:** `Dockerfile`, `.dockerignore`, `docker/`, `docker-compose.dokploy.yml`, `bootstrap/app.php` (`trustProxies`)

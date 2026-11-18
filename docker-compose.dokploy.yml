@@ -1,4 +1,5 @@
-# Dokploy "Compose" deployment: one image, three roles. Postgres and Dragonfly are Dokploy
+# Optional Dokploy "Compose" deployment: one image as three services, one process each. The simpler
+# route is a Dokploy "Application" (Dockerfile), where one container runs all three (README). Postgres and Dragonfly are Dokploy
 # databases on the shared dokploy-network; put their internal hostnames in the environment
 # (Dokploy → this compose → Environment), which Dokploy writes to .env next to this file.
 #

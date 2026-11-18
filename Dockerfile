@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1.7
 #
 # PromptEdit × Pixelforge: one image for the web app, the queue worker and the scheduler.
-# Pick the role at runtime with CONTAINER_ROLE=web|worker|scheduler (see docker/entrypoint.sh).
+# CONTAINER_ROLE=all (default) runs all three in one container under supervisord; web, worker or
+# scheduler runs just one (see docker/entrypoint.sh and docker-compose.dokploy.yml).
 
 ARG PHP_IMAGE=dunglas/frankenphp:1-php8.5
 ARG NODE_IMAGE=node:24-bookworm-slim
@@ -60,6 +61,10 @@ RUN composer dump-autoload --optimize --classmap-authoritative --no-dev \
 # ---------------------------------------------------------------------------------------------
 FROM base AS runtime
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends supervisor \
+    && rm -rf /var/lib/apt/lists/*
+
 ENV APP_ENV=production \
     APP_DEBUG=false \
     LOG_CHANNEL=stderr \
@@ -82,6 +87,7 @@ RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini" \
 
 COPY --from=build --chown=www-data:www-data /app /app
 COPY docker/Caddyfile /etc/frankenphp/Caddyfile
+COPY docker/supervisord.conf /etc/supervisor/supervisord.conf
 COPY --chmod=755 docker/entrypoint.sh /usr/local/bin/entrypoint
 COPY --chmod=755 docker/healthcheck.sh /usr/local/bin/healthcheck
 

@@ -1,5 +1,7 @@
 #!/bin/sh
-# One image, three roles (set CONTAINER_ROLE): web (default), worker, scheduler.
+# One image, four roles (CONTAINER_ROLE):
+#   all (default)  web server + queue worker + scheduler in one container (Dokploy "Application")
+#   web | worker | scheduler   one process each (docker-compose.dokploy.yml)
 set -e
 
 cd /app
@@ -7,12 +9,20 @@ cd /app
 # Configuration comes from the environment at runtime, so caches are built here, not in the image.
 php artisan optimize --quiet
 
-case "${CONTAINER_ROLE:-web}" in
+migrate() {
+  if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
+    # --isolated: only one container migrates when several start at once (cache lock in Dragonfly).
+    php artisan migrate --force --isolated
+  fi
+}
+
+case "${CONTAINER_ROLE:-all}" in
+  all)
+    migrate
+    exec supervisord -c /etc/supervisor/supervisord.conf
+    ;;
   web)
-    if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
-      # --isolated: only one container migrates when several start at once (cache lock in Dragonfly).
-      php artisan migrate --force --isolated
-    fi
+    migrate
     exec frankenphp run --config /etc/frankenphp/Caddyfile
     ;;
   worker)

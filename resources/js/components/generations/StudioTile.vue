@@ -63,7 +63,11 @@ const actionClass =
                     @error="imageFailed = true"
                 />
             </Link>
-            <div class="absolute bottom-2 left-2 flex gap-1.5">
+            <!-- Shown on hover, and whenever one of them has keyboard focus. Touch screens have no
+                 hover, so there they stay visible. -->
+            <div
+                class="pointer-events-none absolute bottom-2 left-2 flex translate-y-1 gap-1.5 opacity-0 transition duration-200 group-hover:pointer-events-auto group-hover:translate-y-0 group-hover:opacity-100 focus-within:pointer-events-auto focus-within:translate-y-0 focus-within:opacity-100 [@media(hover:none)]:pointer-events-auto [@media(hover:none)]:translate-y-0 [@media(hover:none)]:opacity-100"
+            >
                 <button
                     type="button"
                     aria-label="Expand"
