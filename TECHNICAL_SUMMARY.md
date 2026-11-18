@@ -4,7 +4,7 @@ Laravel 13 · PHP 8.5 · Inertia v3 + Vue 3 · PostgreSQL 18 · Redis · Pest 5 
 
 Signed-in users generate images through **Pixelforge**, an asynchronous image API priced per token. They pay Pixelforge's cost **plus 25%**. Every generation is recorded at the exact cost, never twice, and failed generations are free.
 
-Design decisions and their reasoning: [`DECISIONS.md`](DECISIONS.md) (22 entries).
+Design decisions and their reasoning: [`DECISIONS.md`](DECISIONS.md) (23 entries).
 Project rules for agents: [`CLAUDE.md`](CLAUDE.md), [`.claude/rules/`](.claude/rules).
 
 ---

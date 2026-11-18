@@ -316,3 +316,21 @@ Short records of design choices, for review and the technical interview.
 - Group by `created_at`: wouldn't match Pixelforge, which bills on completion.
 **Consequences:** Live on the local key, 2026-11-18: 16 billed, $1.14448125 charged, $0.915585 Pixelforge cost, $0.22889625 profit, and every day matches `/v1/usage`. Each environment compares against its own API key.
 **Code:** `AdminSpendReportQuery`, `Admin\SpendReportController`, `SpendReportRequest`, `ImageGenerationProvider::dailyUsage`, `PixelforgePayloadMapper::toDailyUsage`, `Money::minus`, `MakeAdmin` command, `resources/js/pages/admin/SpendReport.vue` (+ `SpendReportControllerTest`)
+
+## 23. Deployment: one Docker image, three roles, on Dokploy (2026-11-18)
+
+**Context:** Deploying on Dokploy, with Postgres and Dragonfly (Redis-compatible) as Dokploy databases.
+**Decision:**
+- One image (`Dockerfile`, FrankenPHP on PHP 8.5, running as non-root `www-data`) for three services in `docker-compose.dokploy.yml`, selected by `CONTAINER_ROLE`:
+  - `web`: runs `migrate --force --isolated`, then serves on port 8000.
+  - `worker`: `queue:work --queue=default,images` with timeout 80 s, below the queue's 90 s `retry_after`.
+  - `scheduler`: `schedule:work`.
+- Configuration is cached at container start (`optimize`), because the environment only exists at runtime.
+- Images are kept on a named volume shared by `app` and `worker`. On Dokploy a volume survives redeploys, so no object storage is needed. The S3 path stays available for hosts where it's needed.
+- `trustProxies('*')`: Traefik terminates TLS, and the container is reachable only through it on the internal network.
+**Verified locally:** a smoke run against Postgres 18 and Dragonfly.
+- Health check, pages and migrations all pass, and asset URLs come out as `https` behind a forwarded proto.
+- The Dragonfly cache, locks and cached report values work.
+- The `admin` role exists, the worker idles, the scheduler runs `pixelforge:poll`, and all three containers are healthy.
+**Consequences:** One build serves all three roles, and every service runs the same code version.
+**Code:** `Dockerfile`, `.dockerignore`, `docker/`, `docker-compose.dokploy.yml`, `bootstrap/app.php` (`trustProxies`)

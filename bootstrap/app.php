@@ -22,6 +22,11 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->encryptCookies(except: ['appearance', 'sidebar_state']);
 
+        // Deployed behind a TLS-terminating reverse proxy (Traefik in Dokploy): trust its X-Forwarded-*
+        // headers so URLs, redirects and secure cookies use https. The app container is only reachable
+        // through that proxy on the internal network.
+        $middleware->trustProxies(at: '*');
+
         // Keep accepting provider webhooks during maintenance: recording them is safe, and Pixelforge
         // stops retrying after about 28 minutes.
         $middleware->preventRequestsDuringMaintenance(except: ['webhooks/*']);

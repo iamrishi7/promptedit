@@ -133,13 +133,38 @@ composer run dev
 
 ---
 
-## Deploying (Laravel Cloud or any host)
+## Deploying
 
-- PostgreSQL and Redis.
-- **Object storage** for images. Set `PIXELFORGE_IMAGE_DISK=s3` and the `AWS_*` variables. An app server's own disk is wiped on redeploy.
-- A **queue worker**: `php artisan queue:work --queue=default,images`. The `images` queue is lower priority. If a worker skips it, images are never copied.
-- The **scheduler** (`php artisan schedule:work`, or cron running `schedule:run` every minute). It runs the Pixelforge poller, the safety net for everything above.
-- `npm run build`, then `php artisan migrate --force`. Then `php artisan users:make-admin <email>` for each operator.
+### Dokploy (Docker)
+
+The repo ships one image for three roles: `Dockerfile` (FrankenPHP, PHP 8.5), `docker/entrypoint.sh` and `docker-compose.dokploy.yml`.
+
+| Service     | `CONTAINER_ROLE` | Runs                                                                                    |
+| ----------- | ---------------- | --------------------------------------------------------------------------------------- |
+| `app`       | `web`            | Migrates on start (`--isolated`), then serves HTTP on port 8000. Health check: `/up`.   |
+| `worker`    | `worker`         | `queue:work --queue=default,images`, with submissions and webhooks before image copies. |
+| `scheduler` | `scheduler`      | `schedule:work`, which runs the Pixelforge poller every minute.                         |
+
+`app` and `worker` share a named volume at `/app/storage/app`. The worker writes image copies there and the web container serves them; the volume survives redeploys.
+
+1. In Dokploy, create a **Postgres** and a **Dragonfly** database, then note their internal hosts and passwords.
+2. Create a **Compose** service from this repo, with compose path `docker-compose.dokploy.yml`.
+3. In **Environment**, paste [`docker/dokploy.env.example`](docker/dokploy.env.example) and fill it in:
+    - `APP_KEY`: run `php artisan key:generate --show`.
+    - The database hosts and passwords from step 1.
+    - A mailer, because sign-up requires email verification.
+    - The **production** Pixelforge key and secret.
+4. In **Domains**, attach your domain to the `app` service on port `8000` with HTTPS. Traefik terminates TLS, and the app trusts its `X-Forwarded-*` headers.
+5. Deploy. Then open a terminal on `app` and run `php artisan users:make-admin <email>` for each operator.
+6. In the Pixelforge dashboard, set the production key's webhook URL to `https://<your-domain>/webhooks/pixelforge`.
+
+### Any other host
+
+- PostgreSQL, and Redis or Dragonfly.
+- Persistent storage for images. On hosts whose disk doesn't survive a redeploy, use object storage: set `PIXELFORGE_IMAGE_DISK=s3` and the `AWS_*` variables.
+- A **queue worker** running `php artisan queue:work --queue=default,images`. If a worker skips the `images` queue, images are never copied.
+- The **scheduler**, either `php artisan schedule:work` or cron running `schedule:run` every minute.
+- `npm run build`, then `php artisan migrate --force`, then `php artisan users:make-admin <email>`.
 - A **production** Pixelforge key, with its webhook URL set to `https://<your-domain>/webhooks/pixelforge` and its own secret.
 
 ---

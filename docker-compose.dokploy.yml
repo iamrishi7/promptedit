@@ -1,0 +1,50 @@
+# Dokploy "Compose" deployment: one image, three roles. Postgres and Dragonfly are Dokploy
+# databases on the shared dokploy-network; put their internal hostnames in the environment
+# (Dokploy → this compose → Environment), which Dokploy writes to .env next to this file.
+#
+# Domain: Dokploy → Domains → service "app", container port 8000, HTTPS on.
+
+x-app: &app
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: promptedit-app:latest
+  env_file: .env
+  restart: unless-stopped
+  networks:
+    - dokploy-network
+  volumes:
+    # Stored generation images (worker writes, web serves) and other app files. Survives redeploys.
+    - app-storage:/app/storage/app
+
+services:
+  app:
+    <<: *app
+    environment:
+      CONTAINER_ROLE: web
+      RUN_MIGRATIONS: "true"
+    expose:
+      - "8000"
+
+  worker:
+    <<: *app
+    environment:
+      CONTAINER_ROLE: worker
+    depends_on:
+      app:
+        condition: service_healthy
+
+  scheduler:
+    <<: *app
+    environment:
+      CONTAINER_ROLE: scheduler
+    depends_on:
+      app:
+        condition: service_healthy
+
+volumes:
+  app-storage:
+
+networks:
+  dokploy-network:
+    external: true

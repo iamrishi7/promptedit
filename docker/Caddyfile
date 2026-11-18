@@ -1,0 +1,17 @@
+{
+	frankenphp
+	# TLS is terminated by the platform's proxy (Traefik in Dokploy); serve plain HTTP inside.
+	auto_https off
+	admin off
+}
+
+:{$PORT:8000} {
+	root * /app/public
+	encode zstd br gzip
+
+	# Long-lived caching for Vite's fingerprinted assets.
+	@assets path /build/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	php_server
+}
