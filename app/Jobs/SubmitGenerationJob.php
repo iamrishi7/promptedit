@@ -70,7 +70,10 @@ class SubmitGenerationJob implements ShouldBeUnique, ShouldQueue
         try {
             $submitGeneration->handle($this->generationId);
         } catch (ProviderUnavailable $unavailable) {
-            $this->release($unavailable->retryAfterSeconds ?? $this->exponentialBackoffSeconds());
+            // Never sooner than Pixelforge asks, but growing with each try: a generation Pixelforge keeps
+            // refusing ("Retry-After: 2" every time) would otherwise retry every 2 s for 15 minutes and
+            // use up the submission budget every other user shares.
+            $this->release(max($unavailable->retryAfterSeconds ?? 0, $this->exponentialBackoffSeconds()));
         }
     }
 

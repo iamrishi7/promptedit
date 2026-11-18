@@ -22,7 +22,7 @@ final class GenerationHistoryQuery
 {
     private const array COLUMNS = [
         'id', 'prompt', 'size', 'quality', 'reference_image_urls', 'status',
-        'estimated_min_charge_nanos', 'estimated_max_charge_nanos', 'charge_nanos',
+        'estimated_min_charge_nanos', 'estimated_max_charge_nanos', 'charge_nanos', 'provider_cost_nanos', 'markup_percent',
         'image_url', 'image_url_expires_at', 'stored_image_path', 'failure_code', 'failure_message',
         'completed_at', 'created_at', 'updated_at',
     ];
@@ -187,6 +187,13 @@ final class GenerationHistoryQuery
                 'nanos' => (string) $record->charge_nanos,
                 'display' => Money::fromNanos($record->charge_nanos)->toDisplayString(),
             ],
+            // What Pixelforge charged us for it (what its dashboard and /v1/usage show), and the markup
+            // fixed on the generation when it started: charge = provider cost × (100 + markup) / 100.
+            'provider_cost' => $record->provider_cost_nanos === null || $inFlight ? null : [
+                'nanos' => (string) $record->provider_cost_nanos,
+                'display' => Money::fromNanos($record->provider_cost_nanos)->toDisplayString(),
+            ],
+            'markup_percent' => $record->markup_percent,
             'failure' => $failure === null ? null : [
                 'code' => $failure->code,
                 'message' => $failure->userMessage(),

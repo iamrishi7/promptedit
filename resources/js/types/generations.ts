@@ -19,6 +19,9 @@ export type GenerationHistoryItem = {
     in_flight: boolean;
     estimate: { min_nanos: string; max_nanos: string; display: string };
     charge: { nanos: string; display: string } | null;
+    /** What Pixelforge charged us (matches its dashboard and /v1/usage); null until final. */
+    provider_cost: { nanos: string; display: string } | null;
+    markup_percent: number;
     failure: { code: string; message: string; provisional: boolean } | null;
     /** Our stored copy (permanent, signed link) once copied; Pixelforge's 24-hour link before that. */
     image: {

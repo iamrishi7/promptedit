@@ -4,7 +4,7 @@ Laravel 13 · PHP 8.5 · Inertia v3 + Vue 3 · PostgreSQL 18 · Redis · Pest 5 
 
 Signed-in users generate images through **Pixelforge**, an asynchronous image API priced per token. They pay Pixelforge's cost **plus 25%**. Every generation is recorded at the exact cost, never twice, and failed generations are free.
 
-Design decisions and their reasoning: [`DECISIONS.md`](DECISIONS.md) (20 entries).
+Design decisions and their reasoning: [`DECISIONS.md`](DECISIONS.md) (22 entries).
 Project rules for agents: [`CLAUDE.md`](CLAUDE.md), [`.claude/rules/`](.claude/rules).
 
 ---
@@ -19,9 +19,9 @@ Project rules for agents: [`CLAUDE.md`](CLAUDE.md), [`.claude/rules/`](.claude/r
 | Generate page (form + price before submit) | ✅ Done: `/generate`, live estimate, double-submit guard | `GenerationController`, `GenerationEstimateController`, `pages/generations/Create.vue` |
 | History page (live status, estimated vs actual cost, image) | ✅ Done: `/generations`, polling while in flight; ⏳ images not stored yet (24h URL) | `GenerationHistoryQuery`, `pages/generations/Index.vue` |
 | Deployment | ❌ Not started | [§10](#10-open-work) |
-| Stretch: admin report, balances | ❌ Not started (report index exists) | [§10](#10-open-work) |
+| Stretch: admin report, balances | ✅ Admin report (#22); balances not started | [§10](#10-open-work) |
 
-Tests: **402** (unit + feature on real Postgres). PHPStan level 7: 0 errors. Pint: clean.
+Tests: **423** (unit + feature on real Postgres). PHPStan level 7: 0 errors. Pint: clean.
 
 ---
 
@@ -308,7 +308,7 @@ Run with `php artisan test --compact` (needs Postgres running). Fixtures are cop
    - `PIXELFORGE_IMAGE_DISK` on object storage (not `local`)
    - queue worker: `queue:work --queue=default,images` (images are copied on the `images` queue)
    - leave a few generations for the evaluators
-5. **Stretch:** admin report (index ready), then balances and "Buy credits".
+5. **Stretch:** ~~admin report~~ done (#22); balances and "Buy credits" remain.
 6. **Housekeeping:**
    - nothing committed yet
    - `.gitignore` excludes `.claude/`, `CLAUDE.md`, `AGENTS.md` — decide whether to commit them

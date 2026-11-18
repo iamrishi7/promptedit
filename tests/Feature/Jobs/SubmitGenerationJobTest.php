@@ -87,6 +87,21 @@ it('keeps the failure provisional when an attempt timed out, so Pixelforge can s
         ->charge_nanos->toBe(0);
 });
 
+it('backs off further each time Pixelforge stays busy, never sooner than its Retry-After', function (int $attempt, int $delay) {
+    Http::fake(['pixelforge.test/v1/generations' => Http::response(['error' => ['code' => 'overloaded', 'message' => 'Busy.']], 503, ['Retry-After' => '2'])]);
+    $job = (new SubmitGenerationJob($this->record->id))->withFakeQueueInteractions();
+    $job->job->attempts = $attempt;
+
+    $job->handle(app(SubmitGeneration::class));
+
+    $job->assertReleased(delay: $delay);
+})->with([
+    'first try: Pixelforge\'s 2 s' => [1, 2],
+    'third try' => [3, 8],
+    'fifth try' => [5, 32],
+    'capped at a minute' => [9, 60],
+]);
+
 it('backs off exponentially when Pixelforge gives no Retry-After', function () {
     Http::fake(['pixelforge.test/v1/generations' => Http::response(['error' => ['code' => 'internal_error', 'message' => 'Oops.']], 500)]);
     $job = (new SubmitGenerationJob($this->record->id))->withFakeQueueInteractions();

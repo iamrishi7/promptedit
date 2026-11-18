@@ -12,6 +12,8 @@ export type User = {
 
 export type Auth = {
     user: User;
+    /** Has the "admin" role: may open the spend and profit report. */
+    isAdmin: boolean;
 };
 
 export type Passkey = {

@@ -121,6 +121,16 @@ final readonly class PixelforgeImageGenerationProvider implements ImageGeneratio
         return $this->mapper->toPricingSchedule($payload);
     }
 
+    public function dailyUsage(string $fromDate, string $toDate): array
+    {
+        $response = $this->send(fn (): Response => $this->authenticated()->get('usage', [
+            'start_date' => $fromDate,
+            'end_date' => $toDate,
+        ]));
+
+        return $this->mapper->toDailyUsage($this->json($response));
+    }
+
     private function client(): PendingRequest
     {
         return Http::baseUrl(rtrim($this->baseUrl, '/').'/')

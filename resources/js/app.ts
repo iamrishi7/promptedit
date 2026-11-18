@@ -15,6 +15,7 @@ void createInertiaApp({
             // The Atelier design: the public pages and the generation studio.
             case ['Welcome', 'Explore', 'Models'].includes(name):
             case name.startsWith('generations/'):
+            case name.startsWith('admin/'):
                 return AtelierLayout;
             case name.startsWith('auth/'):
                 return AuthLayout;

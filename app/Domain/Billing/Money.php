@@ -21,6 +21,8 @@ final readonly class Money
 
     private const int NANOS_PER_CENT = 10_000_000;
 
+    private const int BASIS_POINTS_PER_WHOLE = 10_000;
+
     private function __construct(public int $nanos)
     {
         if ($nanos < 0) {
@@ -65,6 +67,19 @@ final readonly class Money
         return new self($this->nanos + $other->nanos);
     }
 
+    /**
+     * The difference, which must not be negative (e.g. profit = charge − provider cost, where the
+     * charge is never below the cost).
+     */
+    public function minus(self $other): self
+    {
+        if ($other->nanos > $this->nanos) {
+            throw new InvalidArgumentException("Cannot subtract {$other->nanos} from {$this->nanos} nanodollars: money cannot be negative.");
+        }
+
+        return new self($this->nanos - $other->nanos);
+    }
+
     public function times(int $factor): self
     {
         if ($factor < 0) {
@@ -81,6 +96,28 @@ final readonly class Money
     public function dividedByHalfUp(int $divisor): self
     {
         return new self(RoundingPolicy::divideHalfUp($this->nanos, $divisor));
+    }
+
+    /**
+     * This amount as a share of $whole, in basis points (1 bp = 0.01%), rounded half up; null when
+     * $whole is zero (no share to speak of). E.g. profit $0.25 of a $1.25 charge = 2000 bp = 20%.
+     */
+    public function basisPointsOf(self $whole): ?int
+    {
+        if ($whole->isZero()) {
+            return null;
+        }
+
+        $part = $this->nanos;
+        $total = $whole->nanos;
+
+        // Keep part × 10 000 within an int: for amounts over ~$922k, drop the same precision from both.
+        while ($part > intdiv(PHP_INT_MAX, self::BASIS_POINTS_PER_WHOLE)) {
+            $part = intdiv($part, 10);
+            $total = intdiv($total, 10);
+        }
+
+        return RoundingPolicy::divideHalfUp($part * self::BASIS_POINTS_PER_WHOLE, max(1, $total));
     }
 
     public function isZero(): bool

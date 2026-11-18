@@ -10,9 +10,16 @@ import {
 } from '@/components/ui/dropdown-menu';
 import UserMenuContent from '@/components/UserMenuContent.vue';
 import { explore, login, models, register } from '@/routes';
+import { spend } from '@/routes/admin';
 import { create, index } from '@/routes/generations';
 
-export type NavKey = 'create' | 'library' | 'explore' | 'models' | null;
+export type NavKey =
+    | 'create'
+    | 'library'
+    | 'explore'
+    | 'models'
+    | 'admin'
+    | null;
 
 const props = defineProps<{
     /** "app": the signed-in studio header. "site": the public pages' header. */
@@ -34,6 +41,9 @@ const appNav = computed(() => [
     { key: 'library', label: 'My library', href: index() },
     { key: 'explore', label: 'Explore', href: explore() },
     { key: 'models', label: 'Models', href: models() },
+    ...(page.props.auth.isAdmin
+        ? [{ key: 'admin', label: 'Admin', href: spend() }]
+        : []),
 ]);
 
 const siteNav = computed(() => [

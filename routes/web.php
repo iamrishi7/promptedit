@@ -1,8 +1,10 @@
 <?php
 
+use App\Http\Controllers\Admin\SpendReportController;
 use App\Http\Controllers\GenerationController;
 use App\Http\Controllers\GenerationEstimateController;
 use App\Http\Controllers\GenerationImageController;
+use App\Models\User;
 use Illuminate\Support\Facades\Route;
 
 Route::inertia('/', 'Welcome')->name('home');
@@ -35,6 +37,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('generations/estimate', GenerationEstimateController::class)
         ->middleware('throttle:60,1')
         ->name('generations.estimate');
+});
+
+Route::middleware(['auth', 'verified', 'role:'.User::ADMIN_ROLE])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('spend', SpendReportController::class)->name('spend');
 });
 
 require __DIR__.'/settings.php';

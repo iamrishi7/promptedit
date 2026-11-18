@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Pixelforge;
 
+use App\Application\Data\ProviderDailyUsage;
 use App\Application\Exceptions\MalformedProviderPayload;
+use App\Domain\Billing\Money;
 use App\Domain\Billing\PricingSchedule;
 use App\Domain\Billing\TokenRange;
 use App\Domain\Billing\TokenRates;
@@ -53,6 +55,29 @@ final class PixelforgePayloadMapper
      * @param  Closure(): TResult  $build
      * @return TResult
      */
+    /**
+     * @param  array<mixed>  $usage  the body of GET /v1/usage
+     * @return list<ProviderDailyUsage>
+     *
+     * @throws MalformedProviderPayload
+     */
+    public function toDailyUsage(array $usage): array
+    {
+        return $this->readable(fn (): array => array_values(array_map(
+            function (mixed $day): ProviderDailyUsage {
+                $day = is_array($day) ? $day : throw new UnexpectedValueException('Pixelforge usage day is not an object.');
+                $date = $this->string($day, 'date');
+
+                if (preg_match('/^\d{4}-\d{2}-\d{2}$/D', $date) !== 1) {
+                    throw new UnexpectedValueException('Pixelforge usage date is not YYYY-MM-DD.');
+                }
+
+                return new ProviderDailyUsage($date, $this->int($day, 'generations'), Money::fromDecimalString($this->string($day, 'cost_usd')));
+            },
+            $this->array($usage, 'data'),
+        )));
+    }
+
     private function readable(Closure $build): mixed
     {
         try {

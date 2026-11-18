@@ -278,3 +278,41 @@ Short records of design choices, for review and the technical interview.
 - Sending pricing rules to the browser: the browser would do money math, and two formulas would drift.
 **Consequences:** Typing a prompt usually costs one estimate request instead of one per pause. A brute-force test checks every prompt length 1–4,000 in three scenarios: inside the range the shown price is identical, and just outside it differs.
 **Code:** `EstimateGenerationCost`, `PricedRequest`, `GenerationEstimateController`, `resources/js/pages/generations/Create.vue` (+ `EstimateGenerationCostTest`)
+
+## 21. Busy retries back off exponentially, never sooner than Retry-After (2026-11-18)
+
+**Context:** The live `[overloaded]` scenario answers `503` with `Retry-After: 2` every time. The job honoured exactly 2 s, so in its 15-minute window it would make about 450 requests. That eats the 30/minute submission budget every other user's submissions share.
+**Decision:** Release after `max(Retry-After, 2^attempt s, capped at 60 s)`: 2, 4, 8, 16, 32, 60, 60 … That is roughly 20 attempts in 15 minutes. Pixelforge's `Retry-After` is still never undercut.
+**Consequences:** A busy Pixelforge sees far fewer requests. A long outage is tried about once a minute and still ends as a free "stayed too busy" failure.
+
+**Live verification on the local key, 2026-11-18** (13 generations through the app's own submit path, poller only, no tunnel):
+- **Money:**
+  - All 10 that succeeded have a recorded Pixelforge cost and charge equal, to the nanodollar, to an independent recomputation from Pixelforge's own `usage` and `rates`.
+  - Every charge falls inside its stored estimate.
+  - `[fail]` and `[blocked]` cost $0.
+  - The day's total, `$0.915585000`, and every token total match `GET /v1/usage` exactly.
+- **Counting:** `/v1/usage` counts only billed generations, so the admin report must count them the same way.
+- **Concurrency:** the 4-image batch never hit Pixelforge's limit. Every generation needed exactly one attempt and got no busy answers, because the capacity gate kept us at 3 in flight.
+- **Not checked live:** webhook deduplication (`[duplicate]`) needs a tunnel; it is covered by the webhook tests.
+**Code:** `SubmitGenerationJob::handle` (+ `SubmitGenerationJobTest`)
+
+## 22. Admin spend report, checked against Pixelforge per day (2026-11-18)
+
+**Context:** Stretch goal 1. Operators need, per day and per user, what users were charged, what Pixelforge charged us, and the profit. Pixelforge's side must match `GET /v1/usage`.
+**Decision:**
+- **Access:** `spatie/laravel-permission` with a single `admin` role, checked by the `role:admin` route middleware.
+  - The role is created by a migration, so it exists in every environment.
+  - People get it with `php artisan users:make-admin {email}` (`--revoke` to remove).
+  - Pages receive `auth.isAdmin`, which shows the Admin link.
+- **What counts:** only succeeded generations, grouped by the UTC date of `completed_at`. That is exactly how Pixelforge's usage report counts, so our per-day provider cost can be compared to the nanodollar.
+  - Sums are exact integers in Postgres, read through the `generations_report` partial index.
+  - Profit is `Money::minus`, which can't go negative: the charge is never below the cost, enforced by a database CHECK.
+- **The Pixelforge check** is a deferred Inertia prop that calls `/v1/usage` through the provider port (cached for 60 s). The report renders at once, and a slow or unavailable Pixelforge only shows a notice.
+  - Each day is "matches" (cost and count equal) or "differs", with the amount and whether we recorded less or more.
+  - A day where Pixelforge billed something we have no record of is never hidden, even with empty days filtered out.
+- Ranges are up to 92 UTC days, Pixelforge's own limit, so every day shown can be checked.
+**Alternatives:**
+- An `is_admin` column: simpler, but roles were asked for and leave room for more.
+- Group by `created_at`: wouldn't match Pixelforge, which bills on completion.
+**Consequences:** Live on the local key, 2026-11-18: 16 billed, $1.14448125 charged, $0.915585 Pixelforge cost, $0.22889625 profit, and every day matches `/v1/usage`. Each environment compares against its own API key.
+**Code:** `AdminSpendReportQuery`, `Admin\SpendReportController`, `SpendReportRequest`, `ImageGenerationProvider::dailyUsage`, `PixelforgePayloadMapper::toDailyUsage`, `Money::minus`, `MakeAdmin` command, `resources/js/pages/admin/SpendReport.vue` (+ `SpendReportControllerTest`)

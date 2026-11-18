@@ -9,6 +9,7 @@ use App\Application\Ports\ImageArchive;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 /**
  * Keeps generated images on a Laravel filesystem disk: `local` (private) in development, object
@@ -57,7 +58,17 @@ final readonly class FilesystemImageArchive implements ImageArchive
 
         $path = "generations/{$userId}/{$generationId}.{$extension}";
 
-        Storage::disk(self::disk())->put($path, $body);
+        // Disks may be configured not to throw (Laravel's s3 default): check, or we'd record a file
+        // that was never written.
+        try {
+            $written = Storage::disk(self::disk())->put($path, $body);
+        } catch (Throwable $exception) {
+            throw new ImageUnavailable("Could not write the image for generation {$generationId}.", previous: $exception);
+        }
+
+        if ($written === false) {
+            throw new ImageUnavailable("Could not write the image for generation {$generationId}.");
+        }
 
         return $path;
     }

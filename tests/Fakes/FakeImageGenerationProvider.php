@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Fakes;
 
+use App\Application\Data\ProviderDailyUsage;
 use App\Application\Ports\ImageGenerationProvider;
 use App\Domain\Billing\PricingSchedule;
 use App\Domain\Generation\GenerationRequest;
@@ -61,6 +62,14 @@ final class FakeImageGenerationProvider implements ImageGenerationProvider
     public function findSubmitted(string $generationId, DateTimeImmutable $submittedAfter): ?ProviderUpdate
     {
         throw new RuntimeException('findSubmitted() is not faked yet.');
+    }
+
+    /** @var list<ProviderDailyUsage> */
+    public array $usage = [];
+
+    public function dailyUsage(string $fromDate, string $toDate): array
+    {
+        return array_values(array_filter($this->usage, fn (ProviderDailyUsage $day): bool => $day->date >= $fromDate && $day->date <= $toDate));
     }
 
     public function pricing(): PricingSchedule

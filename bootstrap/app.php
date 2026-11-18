@@ -8,6 +8,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Spatie\Permission\Middleware\RoleMiddleware;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -24,6 +25,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // Keep accepting provider webhooks during maintenance: recording them is safe, and Pixelforge
         // stops retrying after about 28 minutes.
         $middleware->preventRequestsDuringMaintenance(except: ['webhooks/*']);
+
+        $middleware->alias([
+            'role' => RoleMiddleware::class,
+        ]);
 
         $middleware->web(append: [
             HandleAppearance::class,

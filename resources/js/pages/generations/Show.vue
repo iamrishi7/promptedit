@@ -129,6 +129,18 @@ const details = computed(() => [
         value: formatElapsed(elapsed.value),
     },
     { term: 'Estimated', value: props.generation.estimate.display },
+    // Pixelforge's own figure for this generation, so it can be checked against its dashboard.
+    props.generation.provider_cost
+        ? {
+              term: 'Pixelforge cost',
+              value: props.generation.provider_cost.display,
+          }
+        : {
+              term: 'Pixelforge cost',
+              value: 'Known when finished',
+              tone: 'text-ink-muted',
+          },
+    { term: 'Markup', value: `+${props.generation.markup_percent}%` },
     props.generation.in_flight && !props.generation.failure?.provisional
         ? {
               term: 'Charged',

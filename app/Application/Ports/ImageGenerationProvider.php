@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Application\Ports;
 
+use App\Application\Data\ProviderDailyUsage;
 use App\Application\Exceptions\MalformedProviderPayload;
 use App\Application\Exceptions\ProviderRefused;
 use App\Application\Exceptions\ProviderUnavailable;
@@ -53,4 +54,16 @@ interface ImageGenerationProvider
      * @throws MalformedProviderPayload
      */
     public function pricing(): PricingSchedule;
+
+    /**
+     * What Pixelforge billed this API key per UTC day, both dates inclusive (at most 92 days).
+     * Days without usage are included with zero.
+     *
+     * @return list<ProviderDailyUsage>
+     *
+     * @throws ProviderUnavailable
+     * @throws ProviderRefused
+     * @throws MalformedProviderPayload
+     */
+    public function dailyUsage(string $fromDate, string $toDate): array;
 }

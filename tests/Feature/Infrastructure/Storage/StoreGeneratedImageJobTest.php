@@ -4,6 +4,7 @@ use App\Application\Exceptions\ImageUnavailable;
 use App\Application\UseCases\StoreGeneratedImage;
 use App\Jobs\StoreGeneratedImageJob;
 use App\Models\Generation as GenerationRecord;
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
@@ -59,3 +60,13 @@ it('refuses anything but a raster image', function (string $type) {
     expect($this->record->fresh()->stored_image_path)->toBeNull();
     Storage::disk('local')->assertDirectoryEmpty('generations');
 })->with(['text/html', 'image/svg+xml', 'image/gif']);
+
+it('treats a failed write as temporary and records nothing', function () {
+    Http::fake([$this->record->image_url => Http::response('PNGDATA', 200, ['Content-Type' => 'image/png'])]);
+    Storage::shouldReceive('disk')->andReturn(Mockery::mock(Filesystem::class, fn ($disk) => $disk->shouldReceive('put')->andReturn(false)));
+
+    expect(fn () => ($this->run)())->toThrow(ImageUnavailable::class)
+        ->and($this->record->fresh())
+        ->stored_image_path->toBeNull()
+        ->image_unstorable->toBeFalse();
+});

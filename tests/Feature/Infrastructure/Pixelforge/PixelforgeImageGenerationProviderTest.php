@@ -1,5 +1,6 @@
 <?php
 
+use App\Application\Exceptions\MalformedProviderPayload;
 use App\Application\Exceptions\ProviderRefused;
 use App\Application\Exceptions\ProviderUnavailable;
 use App\Application\Ports\ImageGenerationProvider;
@@ -184,3 +185,33 @@ it('gives up for now when the lookup cannot reach back far enough', function () 
     expect(fn () => $this->provider->findSubmitted($this->generationId, new DateTimeImmutable('2026-11-04T14:00:00Z')))->toThrow(ProviderUnavailable::class);
     Http::assertSentCount(3);
 });
+
+it('reads daily usage exactly, as Pixelforge bills this key per UTC day', function () {
+    Http::fake(['pixelforge.test/v1/usage*' => Http::response([
+        'object' => 'usage',
+        'data' => [
+            ['date' => '2026-11-01', 'generations' => 3, 'input_text_tokens' => 41, 'input_image_tokens' => 0, 'output_tokens' => 3300, 'reasoning_tokens' => 2950, 'cost_usd' => '0.169080000'],
+            ['date' => '2026-11-02', 'generations' => 0, 'input_text_tokens' => 0, 'input_image_tokens' => 0, 'output_tokens' => 0, 'reasoning_tokens' => 0, 'cost_usd' => '0.000000000'],
+        ],
+    ])]);
+
+    $usage = app(ImageGenerationProvider::class)->dailyUsage('2026-11-01', '2026-11-02');
+
+    expect($usage)->toHaveCount(2)
+        ->and($usage[0]->date)->toBe('2026-11-01')
+        ->and($usage[0]->generations)->toBe(3)
+        ->and($usage[0]->cost->nanos)->toBe(169_080_000)
+        ->and($usage[1]->cost->isZero())->toBeTrue();
+    Http::assertSent(fn (Request $request) => $request->url() === 'https://pixelforge.test/v1/usage?start_date=2026-11-01&end_date=2026-11-02'
+        && $request->hasHeader('Authorization', 'Bearer pf_test_key'));
+});
+
+it('refuses a usage payload it cannot read exactly', function (array $day) {
+    Http::fake(['pixelforge.test/v1/usage*' => Http::response(['object' => 'usage', 'data' => [$day]])]);
+
+    app(ImageGenerationProvider::class)->dailyUsage('2026-11-01', '2026-11-01');
+})->with([
+    'float cost' => [['date' => '2026-11-01', 'generations' => 1, 'cost_usd' => 0.16908]],
+    'bad date' => [['date' => '01/11/2026', 'generations' => 1, 'cost_usd' => '0.169080000']],
+    'missing generations' => [['date' => '2026-11-01', 'cost_usd' => '0.169080000']],
+])->throws(MalformedProviderPayload::class);

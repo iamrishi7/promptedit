@@ -77,3 +77,23 @@ it('displays the exact amount, trimming trailing zeros only down to cents', func
 it('refuses to round up past the largest representable amount', function () {
     Money::fromNanos(PHP_INT_MAX)->ceilToCents();
 })->throws(OverflowException::class);
+
+it('subtracts exactly and never goes negative', function () {
+    expect(Money::fromNanos(381_887_500)->minus(Money::fromNanos(305_510_000))->nanos)->toBe(76_377_500)
+        ->and(Money::fromNanos(5)->minus(Money::fromNanos(5))->isZero())->toBeTrue();
+
+    Money::fromNanos(1)->minus(Money::fromNanos(2));
+})->throws(InvalidArgumentException::class);
+
+it('gives a share in basis points, rounded half up', function (int $part, int $whole, ?int $expected) {
+    expect(Money::fromNanos($part)->basisPointsOf(Money::fromNanos($whole)))->toBe($expected);
+})->with([
+    '25% markup is a 20% margin' => [76_377_500, 381_887_500, 2000],
+    'all of it' => [5, 5, 10_000],
+    'none of it' => [0, 5, 0],
+    'rounds half up (1/3 = 33.333…%)' => [1, 3, 3333],
+    'rounds half up (2/3 = 66.666…%)' => [2, 3, 6667],
+    'exactly half a basis point rounds up' => [1, 20_000, 1],
+    'nothing to compare with' => [5, 0, null],
+    'very large amounts stay exact enough' => [intdiv(PHP_INT_MAX, 5), PHP_INT_MAX, 2000],
+]);

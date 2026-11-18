@@ -334,6 +334,9 @@ describe('show', function () {
                 ->component('generations/Show')
                 ->where('generation.id', $generation->id)
                 ->where('generation.charge.display', '$0.3818875')
+                // Pixelforge's own figure, so it can be checked against its dashboard: 0.30551 × 1.25 = 0.3818875.
+                ->where('generation.provider_cost', ['nanos' => '305510000', 'display' => '$0.30551'])
+                ->where('generation.markup_percent', 25)
                 ->has('generation.reference_image_urls')
                 ->has('variations', 1)
                 ->where('variations.0.id', $sibling->id)
